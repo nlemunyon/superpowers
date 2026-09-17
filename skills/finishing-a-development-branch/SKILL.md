@@ -112,16 +112,9 @@ git branch -d <feature-branch>
 
 ### Option 2: Push and Create PR
 
-```bash
-git push -u origin <feature-branch>
-# From a detached HEAD, name the new branch on the remote:
-# git push origin HEAD:refs/heads/<new-branch>
-```
-
-Then create the pull/merge request against <base-branch> with the forge's
-tooling — its CLI if one is available, or the creation URL most forges
-print when you push — following the repo's PR template and conventions if
-present, and report the URL to your human partner.
+Use superpowers:shipping for this option: it runs preflight before the
+push, opens the MR, watches the pipeline, and works review comments.
+Merge happens only if your human partner says so.
 
 Keep the worktree — your human partner iterates on PR feedback there.
 

@@ -126,7 +126,17 @@ Expected: PASS
 git add tests/path/test.py src/path/file.py
 git commit -m "feat: add specific feature"
 ```
+
+**Done when:**
+- `pytest tests/path/test.py -v` exits 0
+- `<project lint command>` exits 0
+- Only the files listed under **Files** changed
 ````
+
+**Done when** is required on every task. It is the implementer's
+definition of done and the verifier re-runs it fresh. Commands only —
+each must be runnable as written and exit 0. Judgment calls ("code is
+clean") belong to the reviewer, not here.
 
 ## No Placeholders
 
@@ -136,6 +146,7 @@ Every step must contain the actual content an engineer needs. These are **plan f
 - "Write tests for the above" (without actual test code)
 - "Similar to Task N" (repeat the code — the engineer may be reading tasks out of order)
 - Steps that describe what to do without showing how (code blocks required for code steps)
+- A task without a **Done when** block, or one whose lines are not commands
 - References to types, functions, or methods not defined in any task
 
 ## Self-Review

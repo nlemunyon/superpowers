@@ -8,7 +8,9 @@ code quality.
 more, nothing less) and is well-built (clean, tested, maintainable)
 
 ```
-Subagent (general-purpose):
+Subagent: reviewer            (Claude Code: subagent_type "reviewer";
+                               Codex: "Have reviewer review Task N";
+                               fallback: general-purpose with this full text)
   description: "Review Task N (spec + quality)"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
@@ -28,6 +30,13 @@ Subagent (general-purpose):
     ## What the Implementer Claims They Built
 
     Read the implementer's report: [REPORT_FILE]
+
+    ## Independent Verification
+
+    Read the verifier's file: [VERIFICATION_FILE]. It is the test
+    evidence for this diff — a fresh agent re-ran the Done-when block,
+    the suite, and any e2e stage. Its verdict must be PASS; anything
+    else is a Critical finding.
 
     ## Diff Under Review
 
@@ -72,9 +81,8 @@ Subagent (general-purpose):
 
     ## Tests
 
-    The implementer already ran the tests and reported results with TDD
-    evidence for exactly this code. Do not re-run the suite to confirm their
-    report. Run a test only when reading the code raises a specific doubt
+    The verifier already re-ran the tests for exactly this code and the
+    implementer's report carries TDD evidence. Do not re-run the suite. Run a test only when reading the code raises a specific doubt
     that no existing run answers — and then a focused test, never a
     package-wide suite, race detector run, or repeated/high-count loop. If
     heavy validation seems warranted, recommend it in your report instead of
@@ -197,6 +205,7 @@ Subagent (general-purpose):
   are already in this template)
 - `[REPORT_FILE]` — REQUIRED: the file the implementer wrote its detailed
   report to
+- `[VERIFICATION_FILE]` — REQUIRED: the verifier's file for this task
 - `[BASE_SHA]` — commit before this task
 - `[HEAD_SHA]` — current commit
 - `[DIFF_FILE]` — REQUIRED: the path the controller wrote the review

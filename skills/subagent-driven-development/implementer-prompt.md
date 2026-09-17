@@ -3,7 +3,9 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-Subagent (general-purpose):
+Subagent: implementer         (Claude Code: subagent_type "implementer";
+                               Codex: "Have implementer do Task N";
+                               fallback: general-purpose with this full text)
   description: "Implement Task N: [task name]"
   model: [MODEL — REQUIRED: choose per SKILL.md Model Selection; an omitted
          model silently inherits the session's most expensive one]
@@ -13,7 +15,10 @@ Subagent (general-purpose):
     ## Task Description
 
     Read your task brief first: [BRIEF_FILE]
-    It contains the full task text from the plan.
+    It contains the full task text from the plan. Its **Done when** block
+    is your definition of done: run every command in it before you
+    report, and paste each command, exit code, and output tail into
+    your report. A fresh verifier re-runs the same block after you.
 
     ## Context
 

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# git pre-push hook: block force-pushes and direct pushes to protected branches,
+# then run a quick preflight. Install: scripts/install.sh copies this to .git/hooks/.
+#
+# Override for a deliberate action: SKIP_PREFLIGHT=1 git push
+set -uo pipefail
+protected=${PROTECTED_BRANCHES:-"main master dev develop release/*"}
+remote=$1
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ -z "$remote_ref" ] && continue
+  branch=${remote_ref#refs/heads/}
+  for p in $protected; do
+    # shellcheck disable=SC2254
+    case "$branch" in $p)
+      echo "pre-push: direct push to protected branch '$branch' blocked. Open a merge request." >&2
+      exit 1;;
+    esac
+  done
+  # Force push: remote sha is not an ancestor of local sha
+  if [ "$remote_sha" != "0000000000000000000000000000000000000000" ] && \
+     ! git merge-base --is-ancestor "$remote_sha" "$local_sha" 2>/dev/null; then
+    if [ "${ALLOW_FORCE_PUSH:-0}" != "1" ]; then
+      echo "pre-push: non-fast-forward push to '$branch' blocked. Use ALLOW_FORCE_PUSH=1 on your own MR branch after a rebase, never on a shared one." >&2
+      exit 1
+    fi
+  fi
+done
+
+[ "${SKIP_PREFLIGHT:-0}" = "1" ] && exit 0
+root=$(git rev-parse --show-toplevel)
+pf="$root/scripts/preflight.sh"; [ -x "$pf" ] || pf="$root/.agents/scripts/preflight.sh"
+[ -x "$pf" ] && exec "$pf" --quick
+exit 0

@@ -5,11 +5,18 @@ description: Use when executing implementation plans with independent tasks in t
 
 # Subagent-Driven Development
 
-Execute plan by dispatching a fresh implementer subagent per task, a task review (spec compliance + code quality) after each, and a broad whole-branch review at the end.
+Execute plan by dispatching a fresh implementer subagent per task, a fresh verifier that re-runs the task's **Done when** block, a task review (spec compliance + code quality), and a broad whole-branch review at the end.
+
+**Roles:** dispatch with the named agents in `.claude/agents/` (Claude Code
+`subagent_type`) or `.codex/agents/` (Codex, by name): `implementer`,
+`verifier`, `reviewer`, `explorer`. Each carries its own tool allowlist
+and instructions, so a dispatch prompt holds only the task's inputs. If
+the named agents are not installed, fall back to a general-purpose
+subagent with the template's full text.
 
 **Why subagents:** You delegate tasks to specialized agents with isolated context. By precisely crafting their instructions and context, you ensure they stay focused and succeed at their task. They should never inherit your session's context or history — you construct exactly what they need. This also preserves your own context for coordination work.
 
-**Core principle:** Fresh subagent per task + task review (spec + quality) + broad final review = high quality, fast iteration
+**Core principle:** Fresh implementer per task + fresh verifier + task review (spec + quality) + broad final review = high quality, fast iteration. The agent that checks the work is never the one that wrote it.
 
 **Narration:** between tool calls, narrate at most one short line — the
 ledger and the tool results carry the record.
@@ -68,6 +75,8 @@ digraph process {
         "Implementer asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer implements, tests, commits, self-reviews" [shape=box];
+        "Dispatch verifier (./verifier-prompt.md): re-run Done when, suite, e2e" [shape=box];
+        "Verifier PASS?" [shape=diamond];
         "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)" [shape=box];
         "Spec ✅ and quality approved?" [shape=diamond];
         "Finding conflicts with plan text?" [shape=diamond];
@@ -95,7 +104,10 @@ digraph process {
     "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
     "Answer questions, provide context" -> "Implementer implements, tests, commits, self-reviews";
     "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
-    "Implementer implements, tests, commits, self-reviews" -> "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)";
+    "Implementer implements, tests, commits, self-reviews" -> "Dispatch verifier (./verifier-prompt.md): re-run Done when, suite, e2e";
+    "Dispatch verifier (./verifier-prompt.md): re-run Done when, suite, e2e" -> "Verifier PASS?";
+    "Verifier PASS?" -> "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)" [label="yes"];
+    "Verifier PASS?" -> "Fix round R of 5: R≤3 resume implementer; R≥4 fresh implementer, more capable model" [label="no - failures are findings"];
     "Generate review package, dispatch task reviewer (./task-reviewer-prompt.md)" -> "Spec ✅ and quality approved?";
     "Spec ✅ and quality approved?" -> "Append completion to ledger, mark todo complete" [label="yes"];
     "Spec ✅ and quality approved?" -> "Finding conflicts with plan text?" [label="no"];
@@ -287,7 +299,7 @@ Template: [implementer-prompt.md](implementer-prompt.md)
 
 Implementer subagents report one of four statuses. Handle each appropriately:
 
-**DONE:** Generate the review package (`scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path.
+**DONE:** Dispatch the verifier ([verifier-prompt.md](verifier-prompt.md)) with the brief path, the report path, BASE, and a verification-file path (`…/task-N-verification.md`). A FAIL verdict enters the fix loop as Critical findings — the implementer's report was wrong, and that is the fact to fix. On PASS, generate the review package (`scripts/review-package PLAN_FILE BASE HEAD`, from this skill's directory — it prints the unique file path it wrote; BASE is the commit you recorded before dispatching the implementer — never `HEAD~1`, which silently drops all but the last commit of a multi-commit task), then dispatch the task reviewer with the printed path and the verification path.
 
 **DONE_WITH_CONCERNS:** The implementer completed the work but flagged doubts. Read the concerns before proceeding. If the concerns are about correctness or scope, address them before review. If they're observations (e.g., "this file is getting large"), note them and proceed to review.
 
@@ -322,9 +334,9 @@ needed.
   call. Use the BASE you recorded before dispatching the implementer —
   never `HEAD~1`, which silently truncates multi-commit tasks. Never
   dispatch a task reviewer without a diff file.
-- **Reviewer inputs:** the task reviewer gets three paths — the same brief
-  file, the report file, and the review package — plus the global
-  constraints that bind the task.
+- **Reviewer inputs:** the task reviewer gets four paths — the same brief
+  file, the report file, the verification file, and the review package —
+  plus the global constraints that bind the task.
 - The global-constraints block you hand the reviewer is its attention
   lens. Copy the binding requirements verbatim from the plan's Global
   Constraints section or the spec: exact values, exact formats, and the
@@ -387,11 +399,10 @@ own problem — fresh eyes and a capability bump in one move.
 
 **Every round, either way:** the implementer fixes, re-runs the tests
 covering the amended code, appends its fix report to the same report file,
-and returns the short contract. Before re-dispatching the reviewer, confirm
-the fix report contains the covering tests, the command run, and the
-output; dispatch the re-review once all three are present. Name the
-covering test files in the fix message — a one-line fix does not need the
-whole suite.
+and returns the short contract. Then dispatch the verifier again on the
+fix range (it re-runs **Done when**; append to the same verification
+file). Dispatch the re-review only on a PASS. Name the covering test files
+in the fix message — a one-line fix does not need the whole suite.
 
 **The re-review is scoped.** Run `scripts/review-package PLAN_FILE FIX_BASE HEAD`
 where FIX_BASE is the head the previous review saw, and dispatch
@@ -496,6 +507,7 @@ Use superpowers:finishing-a-development-branch.
 | "The reviewer will just find something new anyway" | Scoped re-reviews verify fixes; they cannot wander. New findings on untouched code go to the ledger, not the loop. |
 | "This finding is obviously wrong, I'll drop it" | You adjudicate only at the cap, and every ruling is a ledger entry. Silent discards are forbidden. |
 | "The fix was small, skip the re-review" | Unreviewed fixes are how regressions land. Every round ends with a scoped re-review. |
+| "The implementer ran the tests, the verifier is redundant" | The implementer grades its own work. A fresh run by an agent that did not write the code is the only evidence that counts. |
 | "Reviews slow the loop down" | The loop without reviews is just unverified churn. Reviews are the loop's brakes and steering. |
 | "Ledger bookkeeping is overhead" | The ledger is what survives compaction. Controllers without one have re-dispatched entire completed task sequences. |
 | "The implementer spawned its own reviewer — free extra assurance" | It's a duplicate seat reviewing the same diff; the task review is the gate. A worker-spawned reviewer is a defect to flag, not rigor. |
