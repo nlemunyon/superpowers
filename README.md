@@ -1,9 +1,8 @@
 # superpowers (trimmed)
 
-Skills and enforced subagent roles for Claude Code and Codex. Fork of
-[obra/superpowers](https://github.com/obra/superpowers), cut down to two
-harnesses and hardened for a build → fix → ship loop that doesn't rely on
-a model just behaving.
+Private fork of [obra/superpowers](https://github.com/obra/superpowers),
+cut down to Claude Code + Codex and hardened for a build → fix → ship
+loop that doesn't rely on a model just behaving.
 
 ## What's different from upstream
 
@@ -13,9 +12,7 @@ a model just behaving.
   schema) and `.codex/agents/*.toml` (enforced by `sandbox_mode`). The
   three read-only roles are additionally backed by
   `.claude/hooks/readonly-guard`, a `PreToolUse` hook that blocks
-  mutating Bash commands and any Write/Edit outside `.superpowers/` —
-  belt and suspenders on the Claude Code side, since command-text
-  matching alone isn't a real security boundary (see caveats below).
+  mutating Bash commands and any Write/Edit outside `.superpowers/`.
 - **A required `Done when` block** on every plan task (`writing-plans`),
   re-run from scratch by a fresh `verifier` subagent before the task
   reviewer ever sees the diff (`subagent-driven-development`,
@@ -33,17 +30,12 @@ a model just behaving.
   blocks direct pushes to protected branches and any non-fast-forward
   push without an explicit override. The skill then watches the
   pipeline, triages failures, works merge-request review comments, and
-  sets auto-merge only when told to. GitLab-first, GitHub command table
-  included.
-- **Everything else not needed for Claude Code + Codex removed**: 7
-  harness ports (Cursor, Devin, Hermes, Kimi, OpenCode, Pi,
-  Gemini/Antigravity), the visual brainstorming server, upstream's
-  internal plan/spec history, and the OpenAI-portal sync script.
+  sets auto-merge only when told to.
+- Every harness port that isn't Claude Code or Codex removed, along with
+  the visual brainstorming server and upstream's internal plan/spec
+  history.
 
 ## Install
-
-**Vendored** — works behind a blocked marketplace, no plugin install
-needed:
 
 ```bash
 scripts/install.sh /path/to/repo
@@ -53,20 +45,11 @@ Copies `skills/` into `.agents/skills/` (symlinked from `.claude/skills/`),
 the four agent roles into `.claude/agents/` and `.codex/agents/`, the
 readonly-guard hook, `scripts/preflight.sh`, and a `pre-push` git hook.
 Appends a bootstrap block to `AGENTS.md`/`CLAUDE.md` if one isn't already
-there.
+there. This is the only install path actually in use — plugin manifests
+exist (`.claude-plugin/`, `.codex-plugin/`) for a possible future native
+install, but that path hasn't been tested.
 
-**Claude Code plugin** (personal use) — `.claude-plugin/plugin.json` and
-`.agents/plugins/marketplace.json` are already set up: add this directory
-as a local marketplace and install `superpowers`.
-
-**Codex** — `.codex-plugin/plugin.json` declares `skills: "./skills/"`
-and Codex can read it straight from a local checkout; the packaging
-script (`scripts/package-codex-plugin.sh`) is only needed if you're
-submitting through OpenAI's plugin portal, which you likely aren't for a
-personal fork.
-
-Optional tools either path benefits from: `glab`, `gitlab-ci-local`,
-`docker compose`.
+Optional tools: `glab`, `gitlab-ci-local`, `docker compose`.
 
 ## Codex setup
 
@@ -93,13 +76,11 @@ waiting, and model-routing details.
 `readonly-guard` matches command *text*, not intent — it stops a model
 that's casually drifting out of its lane (a reviewer fixing a typo it
 noticed), not one spelled around with an absolute path, a wrapper shell,
-or a different interpreter entirely. That's a documented limitation of
-command-text matching generally, not a bug specific to this hook. The
-Codex side is stronger by construction: `sandbox_mode = "read-only"` is
-enforced by the OS, not by reading strings, so a write fails there
-regardless of how the command is spelled. Treat the hook as a tripwire
-for cooperative agents, not a security boundary — for that, use
-sandboxing.
+or a different interpreter entirely. The Codex side is stronger by
+construction: `sandbox_mode = "read-only"` is enforced by the OS, not by
+reading strings, so a write fails there regardless of how the command is
+spelled. Treat the hook as a tripwire for cooperative agents, not a
+security boundary — for that, use sandboxing.
 
 ## Layout
 
