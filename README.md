@@ -31,9 +31,6 @@ loop that doesn't rely on a model just behaving.
   push without an explicit override. The skill then watches the
   pipeline, triages failures, works merge-request review comments, and
   sets auto-merge only when told to.
-- Every harness port that isn't Claude Code or Codex removed, along with
-  the visual brainstorming server and upstream's internal plan/spec
-  history.
 
 ## Install
 
@@ -41,13 +38,12 @@ loop that doesn't rely on a model just behaving.
 scripts/install.sh /path/to/repo
 ```
 
-Copies `skills/` into `.agents/skills/` (symlinked from `.claude/skills/`),
-the four agent roles into `.claude/agents/` and `.codex/agents/`, the
-readonly-guard hook, `scripts/preflight.sh`, and a `pre-push` git hook.
-Appends a bootstrap block to `AGENTS.md`/`CLAUDE.md` if one isn't already
-there. This is the only install path actually in use — plugin manifests
-exist (`.claude-plugin/`, `.codex-plugin/`) for a possible future native
-install, but that path hasn't been tested.
+This is the only install path in this fork — copies `skills/` into
+`.agents/skills/` (symlinked from `.claude/skills/`), the four agent
+roles into `.claude/agents/` and `.codex/agents/`, the readonly-guard
+hook, `preflight.sh` into `.agents/scripts/`, and `pre-push` into
+`.git/hooks/`. Appends a bootstrap block to `AGENTS.md`/`CLAUDE.md` if
+one isn't already there.
 
 Optional tools: `glab`, `gitlab-ci-local`, `docker compose`.
 
@@ -58,17 +54,23 @@ Enable multi-agent dispatch in `~/.codex/config.toml`:
 ```toml
 [features]
 multi_agent = true
+```
 
+Without this, the spawn/message/wait tools aren't in the model's tool
+schema at all — the roles in `.codex/agents/` exist on disk but nothing
+can reach them. With it on, roles are spawned by name from within a
+session, e.g. "Have verifier check Task 2."
+
+Recommended backstop, same file, so a spawn that omits a model doesn't
+silently inherit the session's most expensive one:
+
+```toml
 [agents]
 default_subagent_model = "<a mid-tier model from your spawn allowlist>"
 default_subagent_reasoning_effort = "medium"
 ```
 
-Without `multi_agent = true`, the spawn/message/wait tools aren't in the
-model's tool schema at all — the roles in `.codex/agents/` exist on disk
-but nothing can reach them. With it on, roles are spawned by name from
-within a session, e.g. "Have verifier check Task 2." See
-`skills/using-superpowers/references/codex-tools.md` for dispatch,
+See `skills/using-superpowers/references/codex-tools.md` for dispatch,
 waiting, and model-routing details.
 
 ## A caveat worth knowing before you trust this
