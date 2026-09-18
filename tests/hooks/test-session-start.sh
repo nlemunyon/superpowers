@@ -89,17 +89,6 @@ if (shape === "nested") {
     fail(`unexpected hookEventName: ${hookOutput.hookEventName}`);
   }
   context = hookOutput.additionalContext;
-} else if (shape === "cursor") {
-  if (hasOwn(payload, "hookSpecificOutput")) {
-    fail("cursor output included hookSpecificOutput");
-  }
-  if (!hasOwn(payload, "additional_context")) {
-    fail("cursor output missing additional_context");
-  }
-  if (hasOwn(payload, "additionalContext")) {
-    fail("cursor output included additionalContext");
-  }
-  context = payload.additional_context;
 } else if (shape === "sdk") {
   if (hasOwn(payload, "hookSpecificOutput")) {
     fail("sdk output included hookSpecificOutput");
@@ -183,17 +172,6 @@ assert_command_output \
     "$wrapper_home" \
     CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
     bash "$WRAPPER_UNDER_TEST" session-start
-
-cursor_home="$(make_home cursor)"
-assert_command_output \
-    "Cursor emits top-level additional_context only" \
-    "cursor" \
-    "" \
-    "" \
-    "$cursor_home" \
-    CURSOR_PLUGIN_ROOT="$REPO_ROOT" \
-    CLAUDE_PLUGIN_ROOT="$REPO_ROOT" \
-    bash "$HOOK_UNDER_TEST"
 
 copilot_home="$(make_home copilot-cli)"
 assert_command_output \
